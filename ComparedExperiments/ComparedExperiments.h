@@ -1,6 +1,10 @@
 #pragma once
 #include<opencv2/opencv.hpp>
+#include <iostream>
+
+using namespace std;
 using namespace cv;
+
 Mat intrinsicMatrix1;
 Mat intrinsicMatrix2;
 Mat R;
@@ -9,7 +13,10 @@ Mat distor1;
 Mat distor2; 
 int picWidth = 1296;
 int picHeight = 966;
-
+Mat Pl, Pr;
+double Threshold2D = 1.0; //像素距离阈值
+double Threshold3D = 0.5; //点云间距均值
+ofstream debug;
 typedef struct _PixelPoint {
 	double xl, yl, xr, yr, point_x, point_y, point_z;
 	_PixelPoint* pNext;
@@ -20,5 +27,7 @@ typedef struct _PixelPointPair {
 }PixelPointPair;
 
 void JudgeOverlap();
-void ProjectionPoint(Point3d thisPoint3d, Point2d& rPoint2dl, Point2d& rPoint2dr, Mat, Mat, Mat, Mat, Mat, Mat);
+void ProjectionPoint(Point3d thisPoint3d, Point3d thisPoint3d1, Point2d thisPoint2dl,Point2d& rPoint2dl, Point2d& rPoint2dr, double&eThis);
 void ReadCalibParams(Mat& intrinsicMatrix1, Mat& intrinsicMatrix2, Mat& R, Mat& T, Mat& distor1, Mat& distor2, int& width, int& height);
+void GetProjectionmatrix();
+void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionCoeff);
