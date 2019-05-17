@@ -16,9 +16,10 @@ int picHeight = 966;
 Mat Pl, Pr;
 double Threshold2D = 1.0; //像素距离阈值
 double Threshold3D = 0.5; //点云间距均值
+
 ofstream debug;
 typedef struct _PixelPoint {
-	double xl, yl, xr, yr, point_x, point_y, point_z;
+	double xl, yl, xr, yr, point_x, point_y, point_z, e;
 	_PixelPoint* pNext;
 }PixelPoint;
 
@@ -31,3 +32,4 @@ void ProjectionPoint(Point3d thisPoint3d, Point3d thisPoint3d1, Point2d thisPoin
 void ReadCalibParams(Mat& intrinsicMatrix1, Mat& intrinsicMatrix2, Mat& R, Mat& T, Mat& distor1, Mat& distor2, int& width, int& height);
 void GetProjectionmatrix();
 void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionCoeff);
+void CalculateError(Point3d P3, Point P2, double& e);
