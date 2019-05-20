@@ -14,8 +14,8 @@ Mat distor2;
 int picWidth = 1296;
 int picHeight = 966;
 Mat Pl, Pr;
-double Threshold2D = 1.0; //像素距离阈值
-double Threshold3D = 0.5; //点云间距均值
+double Threshold2D = 2.0; //像素距离阈值
+double Threshold3D = 0.8; //点云间距均值
 
 ofstream debug;
 typedef struct _PixelPoint {
