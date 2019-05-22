@@ -220,7 +220,6 @@ void JudgeOverlap() {
 			for (int n = cols - 1; n <= cols + 1; n++) {
 				PixelPoint* P = LastPixelPairs[m][n].PixelPoints;
 				while (P != NULL) {
-					bl++;
 					double xl = P->xl;
 					double yl = P->yl;
 					double xr = P->xr;
@@ -241,13 +240,14 @@ void JudgeOverlap() {
 			}
 		}
 		if (Flag == 1) {
-			double D3d = sqrt(pow(p3d[0] - x, 2) + pow(p3d[1] - y, 2) + pow(p3d[2] - z, 2));
+			double D3d = sqrt(pow(thisPoint3d1.x - x, 2) + pow(thisPoint3d1.y - y, 2) + pow(thisPoint3d1.z - z, 2));
 			if (D3d <= Threshold3D) {  //约束2：三维点距离小于点云均值，根据重投影残差取舍
-				if (eThis < eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中S指向的点
-					This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
-					if (S->pNext = NULL) continue;
+				debug1 << "eThis=" << eThis << "; eLast=" << eLast << endl;
+				if (eThis <= eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中S指向的点
+					This3D << thisPoint3d1.x << "  " << thisPoint3d1.y << "  " << thisPoint3d1.z << endl;
+					if (S->pNext == NULL) continue;
 					else {
-						PixelPoint*Q = S->pNext;  //删除链表中S指向的点
+						PixelPoint*Q = S->pNext;  //删除链表中S指向的点(精度较低的重复点)
 						S->e = Q->e;
 						S->point_x = Q->point_x;
 						S->point_y = Q->point_y;
@@ -260,7 +260,26 @@ void JudgeOverlap() {
 						free(Q);
 					}
 				}
+				else if(eThis > eLast){
+					Last3D << x << "  " << y << "  " << z << "  " << endl;
+					if (S->pNext == NULL) continue; //删除链表中S指向的点(已经输出所以删除)
+					else {
+						PixelPoint*Q = S->pNext;  
+						S->e = Q->e;
+						S->point_x = Q->point_x;
+						S->point_y = Q->point_y;
+						S->point_z = Q->point_z;
+						S->xl = Q->xl;
+						S->yl = Q->yl;
+						S->xr = Q->xr;
+						S->yr = Q->yr;
+						S->pNext = Q->pNext;
+						free(Q);
+					}
+
+				}
 			}
+
 		}
 		else if (Flag == 0) {
 			This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
@@ -275,11 +294,11 @@ void JudgeOverlap() {
 				Last3D << temP->point_x << "  " << temP->point_y << "  "
 					<< temP->point_z << "  " << endl;
 				temP = temP->pNext;
+				bl++;
 			}
 		}
 	}
-	debug << "bl:" << bl << endl;
-
+	debug << " bl:" << bl << endl;
 }
 
 void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionCoeff) {  //反畸变校正
