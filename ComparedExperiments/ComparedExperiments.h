@@ -17,7 +17,8 @@ Mat Pl, Pr;
 double Threshold2D = 2.0; //像素距离阈值
 double Threshold3D = 0.8; //点云间距均值
 
-ofstream debug;
+int same, differ, bl;
+ofstream debug,debug1;
 typedef struct _PixelPoint {
 	double xl, yl, xr, yr, point_x, point_y, point_z, e;
 	_PixelPoint* pNext;

@@ -40,6 +40,7 @@ void ReadCalibParams(Mat& intrinsicMatrix1, Mat& intrinsicMatrix2, Mat& R, Mat& 
 	calib >> height;
 	intrinsicMatrix1 = (Mat_<double>(3, 3) << fx1, 0, cx1, 0, fy1, cy1, 0, 0, 1);
 	intrinsicMatrix2 = (Mat_<double>(3, 3) << fx2, 0, cx2, 0, fy2, cy2, 0, 0, 1);
+
 	R = (Mat_<double>(3, 1) << r1, r2, r3);
 	T = (Mat_<double>(3, 1) << t1, t2, t3);
 	distor1 = (Mat_<double>(4, 1) << dist11, dist12, dist13, dist14);
@@ -102,20 +103,21 @@ void JudgeOverlap() {
 		}
 	}
 
-	ifstream L2DL, L2DR, L3DL,T3D,T2DL,T3D1;
+	ifstream L2DL, L2DR, L3DL, T3D, T2DL, T3D1;
 	L2DL.open("Datas\\Sequence01\\MatchResult2D_LeftPoints.TXT");
 	L2DR.open("Datas\\Sequence01\\MatchResult2D_RightPoints.TXT");
 	L3DL.open("Datas\\Sequence01\\Result3D_Points.TXT");
 	T2DL.open("Datas\\Sequence02\\MatchResult2D_LeftPoints.TXT");
 	T3D.open("Datas\\Sequence02\\Result3D_Points.TXT");
-	T3D1.open("Datas\\PointCloud3D02.TXT");
+	T3D1.open("Datas\\PointCloud3D02.TXT");  //二摄站下统一全局坐标
 	debug.open("debug.txt");
+	debug1.open("dev.txt");
 
 	ofstream Last3D, This3D;
 	Last3D.open("Datas\\Last3D.txt");
 	This3D.open("Datas\\This3D.txt");
 
-	int lastNums=-1;
+	int lastNums = -1;
 	char str[200];
 	while (!L3DL.eof()) {
 		L3DL.getline(str, sizeof(str));
@@ -123,7 +125,7 @@ void JudgeOverlap() {
 	}
 	L3DL.clear();
 	L3DL.seekg(0, ios::beg);
-	
+
 	int thisNums = -1;
 	while (!T3D.eof()) {
 		T3D.getline(str, sizeof(str));
@@ -133,8 +135,8 @@ void JudgeOverlap() {
 	T3D.seekg(0, ios::beg);
 
 	int p;
-	Vec2d pl, pr,tpl;
-	Vec3d p3d,p3d1;
+	Vec2d pl, pr, tpl;
+	Vec3d p3d, p3d1;
 	for (p = 0; p < lastNums; p++) {  //上一摄站获取数据存入二维数组
 		L2DL >> pl[0];
 		L2DL >> pl[1];
@@ -157,24 +159,27 @@ void JudgeOverlap() {
 		P->point_y = -p3d[1];
 		P->point_z = -p3d[2];
 
-		Point3d lastP3d(p3d[0], -p3d[1], -p3d[2]);  //计算重投影残差
+		Point3d lastP3d(p3d[0], -p3d[1], -p3d[2]);  
 		Point2d lastP2dl(pl[0], pl[1]);
 		double e1;
-		CalculateError(lastP3d, lastP2dl, e1);
+		CalculateError(lastP3d, lastP2dl, e1);  //计算重投影残差
 		P->e = e1;
 
 		if (LastPixelPairs[rows][cols].PixelPoints == NULL) {
 			P->pNext = NULL;
 			LastPixelPairs[rows][cols].PixelPoints = P;
+			same++;
 		}
 		else {
 			P->pNext = LastPixelPairs[rows][cols].PixelPoints;
 			LastPixelPairs[rows][cols].PixelPoints = P;
+			differ++;
 		}
 	}
+	debug << "same nums:" << same << "; differ nums:" << differ << endl;
 
 	Point3d thisPoint3d, thisPoint3d1;  //未统一坐标/统一坐标
-	Point2d rePoint2dl, rePoint2dr,tPoint2dl;
+	Point2d rePoint2dl, rePoint2dr, tPoint2dl;
 	for (p = 0; p < thisNums; p++) {   //遍历此次摄站获取点云
 		T3D >> p3d[0];
 		T3D >> p3d[1];
@@ -199,21 +204,23 @@ void JudgeOverlap() {
 		tPoint2dl.y = tpl[1];
 
 		double eThis; //重投影残差
-		ProjectionPoint(thisPoint3d,thisPoint3d1,tPoint2dl,rePoint2dl, rePoint2dr, eThis);
+		ProjectionPoint(thisPoint3d, thisPoint3d1, tPoint2dl, rePoint2dl, rePoint2dr, eThis);
 		int rows = (int)rePoint2dl.y;
 		int cols = (int)rePoint2dl.x;
-		
-		double minThre = INT_MAX; 
-		int Flag = 0;
+
+		double minThre = INT_MAX;
+		int Flag = 0; //满足约束一标记
 		double x = 0;
 		double y = 0;
 		double z = 0;
 		double eLast;
-		PixelPoint* S=NULL;
+		PixelPoint* S = NULL;
+		if (rows == 0 || rows >= picHeight || cols == 0 || cols >= picWidth) continue;
 		for (int m = rows - 1; m <= rows + 1; m++) {
 			for (int n = cols - 1; n <= cols + 1; n++) {
-				while (LastPixelPairs[m][n].PixelPoints!=NULL) {
-					PixelPoint* P = LastPixelPairs[m][n].PixelPoints;
+				PixelPoint* P = LastPixelPairs[m][n].PixelPoints;
+				while (P != NULL) {
+					bl++;
 					double xl = P->xl;
 					double yl = P->yl;
 					double xr = P->xr;
@@ -221,22 +228,22 @@ void JudgeOverlap() {
 					double Dl = sqrt(pow(rePoint2dl.x - xl, 2) + pow(rePoint2dl.y - yl, 2));
 					double Dr = sqrt(pow(rePoint2dr.x - xr, 2) + pow(rePoint2dr.y - yr, 2));
 					double D = Dl + Dr;
-					if (Dl <= Threshold2D&&Dr <= Threshold2D&&D <= minThre) { //约束1：重投影左右二维像点与上一摄站采集左右像点欧式距离同时小于给定阈值(最小)
-						 x = P->point_x;
-						 y = P->point_y;
-						 z = P->point_z;
-						 eLast = P->e;
-						 S = P; //指针Q指向满足条件的结点
-						Flag = 1;  
+					if (Dl <= Threshold2D && Dr <= Threshold2D && D <= minThre) { //约束1：重投影左右二维像点与上一摄站采集左右像点欧式距离同时小于给定阈值(最小)
+						x = P->point_x;
+						y = P->point_y;
+						z = P->point_z;
+						eLast = P->e;
+						S = P; //指针Q指向满足条件的结点
+						Flag = 1;
 					}
-					LastPixelPairs[m][n].PixelPoints = LastPixelPairs[m][n].PixelPoints->pNext;
+					P = P->pNext;
 				}
 			}
 		}
 		if (Flag == 1) {
-			double D3d = sqrt(pow(p3d[0]-x, 2) + pow(p3d[1]-y, 2) + pow(p3d[2]-z, 2));
+			double D3d = sqrt(pow(p3d[0] - x, 2) + pow(p3d[1] - y, 2) + pow(p3d[2] - z, 2));
 			if (D3d <= Threshold3D) {  //约束2：三维点距离小于点云均值，根据重投影残差取舍
-				if (eThis<eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中S指向的点
+				if (eThis < eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中S指向的点
 					This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
 					if (S->pNext = NULL) continue;
 					else {
@@ -255,21 +262,24 @@ void JudgeOverlap() {
 				}
 			}
 		}
-		else if(Flag==0){
+		else if (Flag == 0) {
 			This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
 		}
 	}
-	
+
 	//遍历二维数组，输出剩余的上一摄站所有点云
 	for (int i = 0; i < picHeight; i++) {
 		for (int j = 0; j < picWidth; j++) {
-			while (LastPixelPairs[i][j].PixelPoints != NULL) {
-				Last3D << LastPixelPairs[i][j].PixelPoints->point_x << "  "<< LastPixelPairs[i][j].PixelPoints->point_y << "  " 
-					<< LastPixelPairs[i][j].PixelPoints->point_z << "  " << endl;
-				LastPixelPairs[i][j].PixelPoints = LastPixelPairs[i][j].PixelPoints->pNext;
+			PixelPoint* temP = LastPixelPairs[i][j].PixelPoints;
+			while (temP != NULL) { 
+				Last3D << temP->point_x << "  " << temP->point_y << "  "
+					<< temP->point_z << "  " << endl;
+				temP = temP->pNext;
 			}
 		}
 	}
+	debug << "bl:" << bl << endl;
+
 }
 
 void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionCoeff) {  //反畸变校正
@@ -278,7 +288,7 @@ void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionC
 	double ux = cameraMatrix.at<double>(0, 2);
 	double uy = cameraMatrix.at<double>(1, 2);
 
-	double k1 = distortionCoeff.at<double>(0,0);
+	double k1 = distortionCoeff.at<double>(0, 0);
 	double k2 = distortionCoeff.at<double>(1, 0);
 	double p1 = distortionCoeff.at<double>(2, 0);
 	double p2 = distortionCoeff.at<double>(3, 0);
@@ -314,34 +324,37 @@ void myDistPoints(Point2d src, Point2d &dst, Mat& cameraMatrix, Mat& distortionC
 	//dst.push_back(Point2d(xDistortion, yDistortion));
 }
 
-void CalculateError(Point3d P3,Point P2,double& e) {  //计算重投影残差
-	Mat Point3= (Mat_<double>(4, 1) << P3.x, P3.y, P3.z, 1.0); 
+void CalculateError(Point3d P3, Point P2, double& e) {  //计算重投影残差
+	Mat Point3 = (Mat_<double>(4, 1) << P3.x, P3.y, P3.z, 1.0);
 	Mat Point2(3, 1, CV_64F);
 	Point2 = Pl * Point3;
 	Point2d rpsrc, rpdst;
-	rpsrc.x= Point2.at<double>(0, 0) / Point2.at<double>(2, 0);
+	rpsrc.x = Point2.at<double>(0, 0) / Point2.at<double>(2, 0);
 	rpsrc.y = Point2.at<double>(1, 0) / Point2.at<double>(2, 0);
 	myDistPoints(rpsrc, rpdst, intrinsicMatrix1, distor1);
-	vector<Point2d>p1,p2;
-	p1.push_back(rpdst);
-	p2.push_back(P2);
-	e = norm(p1, p2, CV_L2);
+	//vector<Point2d>p1, p2;
+	//p1.push_back(rpdst);
+	//p2.push_back(P2);
+	//e = norm(p1, p2, CV_L2);
+	e = sqrt(pow(rpdst.x - P2.x, 2) + pow(rpdst.y - P2.y, 2));
 }
 
-void ProjectionPoint(Point3d thisPoint3d, Point3d thisPoint3d1,Point2d thisPoint2dl,Point2d& rePoint2dl, Point2d& rePoint2dr,double& eThis) {
+void ProjectionPoint(Point3d thisPoint3d, Point3d thisPoint3d1, Point2d thisPoint2dl, Point2d& rePoint2dl, Point2d& rePoint2dr, double& eThis) {
 
-	Mat tPoint3D = (Mat_<double>(4, 1) << thisPoint3d.x, thisPoint3d.y, thisPoint3d.z, 1.0); //未统一摄站的点
+	Mat tPoint3D = (Mat_<double>(4, 1) << thisPoint3d.x, thisPoint3d.y, thisPoint3d.z, 1.0); //未统一摄站的三维点
 	Mat rp(3, 1, CV_64F);
 	rp = Pl * tPoint3D;
-	Point2d rpsrc,rpdst;
-	rpsrc.x= rp.at<double>(0, 0) / rp.at<double>(2, 0);
-	rpsrc.y= rp.at<double>(1, 0) / rp.at<double>(2, 0);
+	Point2d rpsrc, rpdst;
+	rpsrc.x = rp.at<double>(0, 0) / rp.at<double>(2, 0);
+	rpsrc.y = rp.at<double>(1, 0) / rp.at<double>(2, 0);
 	myDistPoints(rpsrc, rpdst, intrinsicMatrix1, distor1);
-	
-	vector<Point2d>p1, p2;
-	p1.push_back(thisPoint2dl);
-	p2.push_back(rpdst); 
-	eThis = norm(p1, p2, CV_L2); //重投影残差
+
+	//vector<Point2d>p1, p2;
+	//p1.push_back(thisPoint2dl);
+	//p2.push_back(rpdst);
+	//eThis = norm(p1, p2, CV_L2); //重投影残差
+	eThis = sqrt(pow(thisPoint2dl.x - rpdst.x, 2) + pow(thisPoint2dl.y - rpdst.y, 2));
+	debug1 << "thisPoint3d=" << thisPoint3d << " thisPoint2dl=" << thisPoint2dl << " rpdst=" << rpdst << " eThis=" << eThis << endl;
 
 	Mat tPoint3D1 = (Mat_<double>(4, 1) << thisPoint3d1.x, thisPoint3d1.y, thisPoint3d1.z, 1.0);  //统一摄站的点
 	Mat rpl(3, 1, CV_64F);
@@ -351,12 +364,12 @@ void ProjectionPoint(Point3d thisPoint3d, Point3d thisPoint3d1,Point2d thisPoint
 	tem1.x = rpl.at<double>(0, 0) / rpl.at<double>(2, 0);
 	tem1.y = rpl.at<double>(1, 0) / rpl.at<double>(2, 0);
 	myDistPoints(tem1, rePoint2dl, intrinsicMatrix1, distor1);  //反畸变校正
-	
+
 	rpr = Pr * tPoint3D1;
 	tem2.x = rpr.at<double>(0, 0) / rpr.at<double>(2, 0);
 	tem2.y = rpr.at<double>(1, 0) / rpr.at<double>(2, 0);
 	myDistPoints(tem2, rePoint2dr, intrinsicMatrix2, distor2);
-	debug << "rePoint2dl=" << rePoint2dl << "  rePoint2dr=" << rePoint2dr << "  thisPoint3d="<< thisPoint3d <<" eThis="<<eThis<<endl;
+	debug << "thisPoint3d=" << thisPoint3d << " rePoint2dl=" << rePoint2dl << "  rePoint2dr=" << rePoint2dr << endl;
 }
 
 
