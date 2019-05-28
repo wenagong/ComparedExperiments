@@ -33676,4 +33676,4 @@ thisPoint3d=[12.8594, -62.3606, 982.011] rePoint2dl=[596.783, 216.97]  rePoint2d
 thisPoint3d=[13.3675, -62.4647, 981.887] rePoint2dl=[598.007, 216.79]  rePoint2dr=[554.203, 269.631]
 thisPoint3d=[13.6676, -62.5973, 982.245] rePoint2dl=[599.613, 216.648]  rePoint2dr=[555.829, 269.403]
 thisPoint3d=[12.616, -62.8891, 981.618] rePoint2dl=[595.687, 214.891]  rePoint2dr=[551.875, 267.86]
- bl:34941overlapNums27481lNums:13162tNums:14319
+  bl:31024; overlapNums:25602; lNums:12240; tNums:13362

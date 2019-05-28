@@ -18,8 +18,8 @@ Mat iRl(3, 3, CV_64F);
 Mat iRr(3, 3, CV_64F);
 Mat Plt(3, 3, CV_64F); //立体校正后的左右相机矩阵3X3
 Mat Prt(3, 3, CV_64F);
-double Threshold2D = 2.0; //像素距离阈值
-double Threshold3D = 1.0; //点云间距均值
+double Threshold2D = 1.8; //像素距离阈值
+double Threshold3D = 0.8; //点云间距均值
 
 int same, differ, bl;
 ofstream debug,debug1;

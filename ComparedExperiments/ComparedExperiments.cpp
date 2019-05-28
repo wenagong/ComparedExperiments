@@ -73,14 +73,17 @@ void GetProjectionmatrix() {
 }
 
 void JudgeOverlap() {
+
 	ReadCalibParams(intrinsicMatrix1, intrinsicMatrix2, R, T, distor1, distor2, picWidth, picHeight);
 	GetProjectionmatrix();
-	//二维数组初始化
+
+	//二维数组初始化，带有一个头指针
 	PixelPointPair** LastPixelPairs = new PixelPointPair*[picHeight];
 	for (int i = 0; i < picHeight; i++) {
 		LastPixelPairs[i] = new PixelPointPair[picWidth];
 		for (int j = 0; j < picWidth; j++) {
-			LastPixelPairs[i][j].PixelPoints = NULL;
+			LastPixelPairs[i][j].PixelPoints = new PixelPoint;
+			LastPixelPairs[i][j].PixelPoints->pNext = NULL;
 		}
 	}
 
@@ -146,14 +149,14 @@ void JudgeOverlap() {
 		CalculateError(lastP3d, lastP2dl, e1);  //计算重投影残差
 		P->e = e1;
 
-		if (LastPixelPairs[rows][cols].PixelPoints == NULL) {
+		if (LastPixelPairs[rows][cols].PixelPoints->pNext == NULL) {
+			LastPixelPairs[rows][cols].PixelPoints->pNext = P;
 			P->pNext = NULL;
-			LastPixelPairs[rows][cols].PixelPoints = P;
 			//differ++;
 		}
 		else {
-			P->pNext = LastPixelPairs[rows][cols].PixelPoints; //头插法
-			LastPixelPairs[rows][cols].PixelPoints = P;
+			P->pNext = LastPixelPairs[rows][cols].PixelPoints->pNext; //头插法
+			LastPixelPairs[rows][cols].PixelPoints->pNext = P;
 			//same++;
 		}
 	}
@@ -198,11 +201,16 @@ void JudgeOverlap() {
 		double y = 0;
 		double z = 0;
 		double eLast;
-		PixelPoint* S = NULL;
-		if (rows == 0 || rows >= picHeight || cols == 0 || cols >= picWidth) continue;
+		PixelPoint* S = NULL; //S指向P的头结点
+		PixelPoint* R = NULL; //R指向满足条件的结点
+		if (rows == 0 || rows >= picHeight || cols == 0 || cols >= picWidth) {
+			This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
+			continue;
+		}
 		for (int m = rows - 1; m <= rows + 1; m++) {
 			for (int n = cols - 1; n <= cols + 1; n++) {
-				PixelPoint* P = LastPixelPairs[m][n].PixelPoints;
+				PixelPoint* P = LastPixelPairs[m][n].PixelPoints->pNext;
+				S = LastPixelPairs[m][n].PixelPoints; 
 				while (P != NULL) {
 					double xl = P->xl;
 					double yl = P->yl;
@@ -216,57 +224,65 @@ void JudgeOverlap() {
 						y = P->point_y;
 						z = P->point_z;
 						eLast = P->e;
-						S = P; //指针Q指向满足条件的结点
+						R = P;
+						//S->pNext = P; //指针S后面指向满足条件的结点
 						Flag = 1;
 					}
 					P = P->pNext;
 				}
 			}
 		}
-		if (Flag == 1) {
+		if (Flag == 1) { //找到满足约束一的最近点
 			double D3d = sqrt(pow(thisPoint3d1.x - x, 2) + pow(thisPoint3d1.y - y, 2) + pow(thisPoint3d1.z - z, 2)); //求三维点间距大小
 			if (D3d <= Threshold3D) {  //约束2：三维点距离小于点云均值，根据重投影残差取舍
 				overlapNums++;
 				debug1 << "eThis=" << eThis << "; eLast=" << eLast << endl;
-				if (eThis <= eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中S指向的点
+				if (eThis <= eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中R指向的点
 					tNums++;
 					This3D << thisPoint3d1.x << "  " << thisPoint3d1.y << "  " << thisPoint3d1.z << endl;
-					if (S->pNext == NULL) continue; //如果只剩一个点，继续下一个(导致上一个摄站中单独处于一个的单元格的点无法删除)
-					else {
-						PixelPoint*Q = S->pNext;  //删除链表中S指向的点(精度较低的重复点)
-						S->e = Q->e;
-						S->point_x = Q->point_x;
-						S->point_y = Q->point_y;
-						S->point_z = Q->point_z;
-						S->xl = Q->xl;
-						S->yl = Q->yl;
-						S->xr = Q->xr;
-						S->yr = Q->yr;
-						S->pNext = Q->pNext;
-						free(Q);
+					//删除R指向的结点
+					if (S->pNext == R) {
+						S->pNext = R->pNext;
+						free(R);
 					}
+					else {
+						S = S->pNext;
+					}
+					//if (S->pNext->pNext == NULL) {
+					//	PixelPoint*Q = S->pNext;
+					//	S->pNext = NULL;
+					//	free(Q);
+					//}
+					//else {
+					//	PixelPoint*Q = S->pNext;  //删除链表中S指向的点(精度较低的重复点)
+					//	S->e = Q->e;
+					//	S->point_x = Q->point_x;
+					//	S->point_y = Q->point_y;
+					//	S->point_z = Q->point_z;
+					//	S->xl = Q->xl;
+					//	S->yl = Q->yl;
+					//	S->xr = Q->xr;
+					//	S->yr = Q->yr;
+					//	S->pNext = Q->pNext;
+					//	free(Q);
+					//}
 				}
 				else if(eThis > eLast){
 					lNums++;
 					Last3D << x << "  " << y << "  " << z << "  " << endl;
-					if (S->pNext == NULL) continue; //删除链表中S指向的点(已经输出所以删除)
-					else {
-						PixelPoint*Q = S->pNext;  
-						S->e = Q->e;
-						S->point_x = Q->point_x;
-						S->point_y = Q->point_y;
-						S->point_z = Q->point_z;
-						S->xl = Q->xl;
-						S->yl = Q->yl;
-						S->xr = Q->xr;
-						S->yr = Q->yr;
-						S->pNext = Q->pNext;
-						free(Q);
+					//删除链表中R指向的点(已经输出所以删除)
+					if (S->pNext == R) {
+						S->pNext = R->pNext;
+						free(R);
 					}
-
+					else {
+						S = S->pNext;
+					}
 				}
 			}
-
+			else if(D3d > Threshold3D) {   //不满足约束二，输出本次点云
+				This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
+			}
 		}
 		else if (Flag == 0) { //没有找到满足约束条件的点，即没有重复发生
 			This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
@@ -276,7 +292,7 @@ void JudgeOverlap() {
 	//遍历二维数组，输出剩余的上一摄站所有点云
 	for (int i = 0; i < picHeight; i++) {
 		for (int j = 0; j < picWidth; j++) {
-			PixelPoint* temP = LastPixelPairs[i][j].PixelPoints;
+			PixelPoint* temP = LastPixelPairs[i][j].PixelPoints->pNext;
 			while (temP != NULL) { 
 				Last3D << temP->point_x << "  " << temP->point_y << "  "
 					<< temP->point_z << "  " << endl;
@@ -285,7 +301,7 @@ void JudgeOverlap() {
 			}
 		}
 	}
-	debug << " bl:" << bl <<"overlapNums"<< overlapNums<<"lNums:"<< lNums<<"tNums:"<< tNums <<endl;
+	debug << "  bl:" << bl <<"; overlapNums:"<< overlapNums<<"; lNums:"<< lNums<<"; tNums:"<< tNums <<endl;
 	debug, debug1,L2DL, L2DR, L3DL, T3D, T2DL, T3D1.close();
 }
 
