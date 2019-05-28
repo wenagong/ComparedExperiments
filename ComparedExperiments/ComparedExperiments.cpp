@@ -269,7 +269,7 @@ void JudgeOverlap() {
 				}
 				else if(eThis > eLast){
 					lNums++;
-					Last3D << x << "  " << y << "  " << z << "  " << endl;
+					Last3D << x << "  " << -y << "  " << -z << "  " << endl;
 					//删除链表中R指向的点(已经输出所以删除)
 					if (S->pNext == R) {
 						S->pNext = R->pNext;
@@ -294,8 +294,8 @@ void JudgeOverlap() {
 		for (int j = 0; j < picWidth; j++) {
 			PixelPoint* temP = LastPixelPairs[i][j].PixelPoints->pNext;
 			while (temP != NULL) { 
-				Last3D << temP->point_x << "  " << temP->point_y << "  "
-					<< temP->point_z << "  " << endl;
+				Last3D << temP->point_x << "  " << -temP->point_y << "  "
+					<< -temP->point_z << "  " << endl;
 				temP = temP->pNext;
 				bl++;
 			}
