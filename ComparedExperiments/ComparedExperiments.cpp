@@ -239,7 +239,7 @@ void JudgeOverlap() {
 				debug1 << "eThis=" << eThis << "; eLast=" << eLast << endl;
 				if (eThis <= eLast) { //如果当前点误差小于上一摄站点云，输出当前点，并且从链表中删除上一摄站链表中R指向的点
 					tNums++;
-					This3D << thisPoint3d1.x << "  " << thisPoint3d1.y << "  " << thisPoint3d1.z << endl;
+					This3D << p3d1[0] << "  " << p3d1[1] << "  " << p3d1[2] << endl;
 					//删除R指向的结点
 					if (S->pNext == R) {
 						S->pNext = R->pNext;
